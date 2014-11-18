@@ -2,17 +2,27 @@ buildscript {
     repositories {
         mavenLocal()
         jcenter()
+        mavenCentral()
     }
     dependencies {
         classpath 'org.springframework.boot:spring-boot-gradle-plugin:1.1.8.RELEASE'
         classpath 'com.ofg:uptodate-gradle-plugin:+'
         classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:+'
         classpath 'pl.allegro.tech.build:axion-release-plugin:0.9.3'
-        if (project.hasProperty("coverage")) { classpath 'org.kt3k.gradle.plugin:coveralls-gradle-plugin:+' }
+        classpath 'com.github.ben-manes:gradle-versions-plugin:0.4'
+        classpath 'net.saliman:gradle-cobertura-plugin:2.2.5'
     }
 }
 
+repositories {
+    mavenLocal()
+    mavenCentral()
+    jcenter()
+}
+
 apply plugin: 'axion-release'
+apply plugin: 'cobertura'
+apply plugin: 'versions'
 
 scmVersion {
     tag {
@@ -41,7 +51,8 @@ task addHashFile << {
     new File("commitHash.txt").withWriter { it << proc.in.text }
 }
 
-configure(subprojects - project(':swagger')) {
+def srcSubprojects = subprojects - project(':swagger')
+configure(srcSubprojects) {
     apply plugin: 'groovy'
     apply plugin: 'maven'
     apply plugin: 'maven-publish'
@@ -52,6 +63,7 @@ configure(subprojects - project(':swagger')) {
 
     repositories {
         mavenLocal()
+        mavenCentral()
         jcenter()
     }
 
@@ -108,25 +120,23 @@ configure(subprojects - project(':swagger')) {
     }
 
     if(project.hasProperty("coverage")) {
-        apply plugin: 'jacoco'
-        apply plugin: 'com.github.kt3k.coveralls'
+        apply plugin: 'cobertura'
 
-        jacoco {
-            toolVersion = '0.7.1.201405082137'
-        }
 
-        jacocoTestReport {
-            reports {
-                xml.enabled = true // coveralls plugin depends on xml format report
-                html.enabled = true
-            }
+        cobertura {
+            coverageIgnoreTrivial = true
+            coverageFormats = [ 'xml', 'html' ]
         }
 
         test {
             ignoreFailures = true
-            jacoco {
-                excludes = ['*Configuration']
-            }
         }
     }
 }
+
+def files = srcSubprojects.collect { new File(it.projectDir, '/build/cobertura/cobertura.ser') }
+cobertura {
+    coverageFormats = [ 'xml', 'html' ]
+    coverageMergeDatafiles = files
+}
+test.dependsOn(srcSubprojects.test)
