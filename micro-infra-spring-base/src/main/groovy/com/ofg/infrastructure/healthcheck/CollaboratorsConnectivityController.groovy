@@ -1,7 +1,10 @@
 package com.ofg.infrastructure.healthcheck
 
+import com.google.common.base.Function
 import com.google.common.base.Optional
-import com.google.common.base.Optional as GuavaOptional
+import com.google.common.base.Predicate
+import com.google.common.collect.Iterables
+import com.google.common.collect.Maps
 import com.ofg.infrastructure.discovery.ServiceAlias
 import com.ofg.infrastructure.discovery.ServicePath
 import com.ofg.infrastructure.discovery.ServiceResolver
@@ -39,41 +42,49 @@ class CollaboratorsConnectivityController {
      */
     @RequestMapping
     Map getCollaboratorsConnectivityInfo() {
+        Map result = [:]
         Set<ServicePath> myCollaborators = serviceResolver.fetchMyDependencies()
-        return myCollaborators.collectEntries { ServicePath service ->
-            return [service.path, statusOfAllCollaboratorInstances(service)]
+        for (ServicePath servicePath : myCollaborators) {
+            result.put(servicePath.path, statusOfAllCollaboratorInstances(servicePath))
         }
+        return result
     }
 
-    private Map<String, String> statusOfAllCollaboratorInstances(ServicePath service) {
+    private Map statusOfAllCollaboratorInstances(ServicePath service) {
+        Map result = [:]
         Set<URI> allUrisOfService = serviceResolver.fetchAllUris(service)
-        return allUrisOfService.collectEntries { URI instanceUrl ->
+        for (URI instanceUrl: allUrisOfService) {
             boolean status = checkConnectionStatus(instanceUrl)
-            return [instanceUrl, CollaboratorStatus.of(status)]
+            result.put(instanceUrl, CollaboratorStatus.of(status))
         }
+        return result
     }
 
     @RequestMapping('/all')
     Map getAllCollaboratorsConnectivityInfo() {
+        Map result = [:]
         final Set<ServicePath> allServices = serviceResolver.fetchAllDependencies()
-        allServices.collectEntries { ServicePath service ->
-            return [service.path, collaboratorsStatusOfAllInstances(service)]
+        for (ServicePath service : allServices) {
+            result.put(service.path, collaboratorsStatusOfAllInstances(service))
         }
+        return result
     }
 
     private Map collaboratorsStatusOfAllInstances(ServicePath service) {
+        Map result = [:]
         final Set<URI> collaboratorInstances = serviceResolver.fetchAllUris(service)
-        return collaboratorInstances.collectEntries { URI uri ->
-            [uri, checkCollaborators(uri)]
+        for (URI uri : collaboratorInstances) {
+            result.put(uri, checkCollaborators(uri))
         }
+        return result
     }
 
     private Map checkCollaborators(URI url) {
         Optional<Map> collaborators = establishCollaboratorsStatus(url)
-        return [
-                status: CollaboratorStatus.of(collaborators.isPresent()),
-                collaborators: collaborators.or([:])
-        ]
+        Map result = [:]
+        result.put('status', CollaboratorStatus.of(collaborators.isPresent()))
+        result.put('collaborators', collaborators.or([:]))
+        return result
     }
 
     private Optional<Map> establishCollaboratorsStatus(URI url) {
@@ -93,7 +104,12 @@ class CollaboratorsConnectivityController {
     private Optional<Map> tryCallingCollaborators(URI url) {
         Optional<Map> collaborators = pingClient
                 .checkCollaborators(url)
-                .transform({ tryAdjustLegacyCollaboratorsResponse(it) })
+                .transform(new Function<Map, Map>() {
+            @Override
+            Map apply(Map input) {
+                return tryAdjustLegacyCollaboratorsResponse(input)
+            }
+        })
         return collaborators
     }
 
@@ -107,9 +123,13 @@ class CollaboratorsConnectivityController {
 
     private Map adjustLegacyCollaboratorsResponse(Map collaboratorsResponse) {
         Map result = [:]
-        collaboratorsResponse.each {alias, statusStr ->
-            tryResolveAlias(alias as String).transform ({ ServicePath path ->
-                result << suspectedStatusOfAllInstances(path, statusStr as String)
+        for (Map.Entry<Object, Object> entry : collaboratorsResponse.entrySet()) {
+            tryResolveAlias(entry.getKey() as String).transform (new Function() {
+                @Override
+                Object apply(Object path) {
+                    result.putAll(suspectedStatusOfAllInstances(path as ServicePath, entry.getValue() as String))
+                    return result
+                }
             })
         }
         return result
@@ -118,30 +138,39 @@ class CollaboratorsConnectivityController {
     private Map suspectedStatusOfAllInstances(ServicePath service, String statusStr) {
         final Set<URI> allInstances = serviceResolver.fetchAllUris(service)
         CollaboratorStatus status = CollaboratorStatus.of(statusStr == 'CONNECTED')
-        return [
-                (service.path): allInstances.collectEntries { uri -> [uri, status] }
-        ]
+        Map suspectedStatuses = [:]
+        for (URI uri : allInstances) {
+            suspectedStatuses.put(uri, status)
+        }
+        Map result = [:]
+        result.put(service.path, suspectedStatuses)
+        return result
     }
 
-    private GuavaOptional<ServicePath> tryResolveAlias(String alias) {
+    private Optional<ServicePath> tryResolveAlias(String alias) {
         try {
             ServiceAlias serviceAlias = new ServiceAlias(alias as String)
-            return GuavaOptional.of(serviceResolver.resolveAlias(serviceAlias))
+            return Optional.of(serviceResolver.resolveAlias(serviceAlias))
         } catch (NoSuchElementException e) {
             log.warn("Unable to resolve alias $alias", e)
-            return GuavaOptional.absent()
+            return Optional.absent()
         }
     }
 
     private boolean isLegacyResponse(Map collaboratorsResponse) {
-        return !collaboratorsResponse.empty &&
-                collaboratorsResponse.values().any{!(it instanceof Map)}
+        boolean nonMapInstances = Iterables.any(collaboratorsResponse.values(), new Predicate(){
+            @Override
+            boolean apply(Object input) {
+                return !(input instanceof Map)
+            }
+        })
+        return !collaboratorsResponse.isEmpty() && nonMapInstances
     }
 
     private boolean checkConnectionStatus(URI url) {
-        final GuavaOptional<String> pingResult = pingClient.ping(url)
-        return pingResult == GuavaOptional.of('OK') ||
-                pingResult == GuavaOptional.of('')
+        final Optional<String> pingResult = pingClient.ping(url)
+        return pingResult == Optional.of('OK') ||
+                pingResult == Optional.of('')
     }
 
 }
