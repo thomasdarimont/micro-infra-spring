@@ -1,9 +1,12 @@
 package com.ofg.stub.server
+
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
 import groovy.util.logging.Slf4j
 import org.apache.commons.io.IOUtils
 import org.apache.commons.lang.math.RandomUtils
+
+import com.google.common.base.Function
 
 @CompileStatic
 @Slf4j
@@ -28,13 +31,20 @@ class AvailablePortScanner {
         }
     }
 
+    @Deprecated
     public <T> T tryToExecuteWithFreePort(Closure<T> closure) {
+        return tryToExecuteLogicForAvailablePort( closure as Function<Integer, T>)
+    }
+
+    public <T> T tryToExecuteWithFreePort(Function<Integer, T> function) {
+        return tryToExecuteLogicForAvailablePort(function)
+    }
+
+    private <T> T tryToExecuteLogicForAvailablePort(Function<Integer, T> function) {
         for (i in (1..maxRetryCount)) {
             try {
-                int numberOfPortsToBind = maxPortNumber - minPortNumber
-                int portToScan = RandomUtils.nextInt(numberOfPortsToBind) + minPortNumber
-                checkIfPortIsAvailable(portToScan)
-                return executeLogicForAvailablePort(portToScan, closure)
+                int portToScan = getMostLikelyAvailablePort()
+                return executeLogicForAvailablePort(portToScan, function)
             } catch (BindException exception) {
                 log.debug("Failed to execute closure (try: $i/$maxRetryCount)", exception)
             }
@@ -42,9 +52,16 @@ class AvailablePortScanner {
         throw new NoPortAvailableException(minPortNumber, maxPortNumber)
     }
 
-    private <T> T executeLogicForAvailablePort(int portToScan, Closure<T> closure) {
-        log.debug("Trying to execute closure with port [$portToScan]")
-        return closure(portToScan)
+    private int getMostLikelyAvailablePort() {
+        int numberOfPortsToBind = maxPortNumber - minPortNumber
+        int portToScan = RandomUtils.nextInt(numberOfPortsToBind) + minPortNumber
+        checkIfPortIsAvailable(portToScan)
+        return portToScan
+    }
+
+    private <T> T executeLogicForAvailablePort(int portToScan, Function<Integer, T> function) {
+        log.debug("Trying to execute function with port [$portToScan]")
+        return function.apply(portToScan)
     }
 
     private void checkIfPortIsAvailable(int portToScan) {
