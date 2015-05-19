@@ -1,9 +1,11 @@
 package com.ofg.infrastructure.healthcheck
 
+import com.google.common.base.Function
 import com.google.common.base.Optional
 import com.ofg.infrastructure.discovery.ServiceAlias
 import com.ofg.infrastructure.discovery.ServicePath
 import com.ofg.infrastructure.discovery.ServiceResolver
+import com.ofg.infrastructure.discovery.util.CollectionUtils
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
@@ -23,9 +25,19 @@ class CollaboratorsStatusResolver {
 
     public Map statusOfMyCollaborators() {
         Set<ServicePath> myCollaborators = serviceResolver.fetchMyDependencies()
-        return myCollaborators.collectEntries { ServicePath service ->
-            return [service.path, statusOfAllCollaboratorInstances(service)]
-        }
+        return CollectionUtils.toMap(myCollaborators,
+                                     new Function<ServicePath, String>() {
+                                         @Override
+                                         String apply(ServicePath input) {
+                                             return input.path
+                                         }
+                                     },
+                                     new Function<ServicePath, Map<String, String>>() {
+                                         @Override
+                                         Map<String, String> apply(ServicePath input) {
+                                             return statusOfAllCollaboratorInstances(input)
+                                         }
+                                     })
     }
 
     public Map statusOfAllDependencies() {

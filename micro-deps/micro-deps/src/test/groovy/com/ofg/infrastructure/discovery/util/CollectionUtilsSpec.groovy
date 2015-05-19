@@ -1,5 +1,6 @@
 package com.ofg.infrastructure.discovery.util
 
+import com.google.common.base.Function
 import com.google.common.base.Predicate
 import spock.lang.Specification
 
@@ -31,6 +32,30 @@ class CollectionUtilsSpec extends Specification {
             List collection = [1, [2], [[3, 3]]]
         expect:
             [1, 2, 3, 3] == CollectionUtils.flatten(collection, Integer)
+    }
+
+    def 'should convert a set to a map with an identity function'() {
+        given:
+            Set collection = [1, 2, 3]  as Set
+        when:
+            Map<String, Integer> map = CollectionUtils.toMap(collection, { Integer input ->
+                return "${input}a".toString()
+            } as Function)
+        then:
+            ['1a':1, '2a':2, '3a': 3] == map
+    }
+
+    @SuppressWarnings("unchecked")
+    def 'should convert a set to a map with a provided value function'() {
+        given:
+            Set collection = [1, 2, 3]  as Set
+        when:
+            Map map = CollectionUtils.toMap(
+                    collection,
+                    { Integer input -> "${input}a".toString() },
+                    { Integer input -> return input + 1 })
+        then:
+            ['1a':2, '2a':3, '3a': 4] == map
     }
 
 }
