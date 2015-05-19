@@ -42,9 +42,19 @@ class CollaboratorsStatusResolver {
 
     public Map statusOfAllDependencies() {
         final Set<ServicePath> allServices = serviceResolver.fetchAllDependencies()
-        return allServices.collectEntries { ServicePath service ->
-            return [service.path, collaboratorsStatusOfAllInstances(service)]
-        }
+        return CollectionUtils.toMap(allServices,
+                new Function<ServicePath, String>() {
+                    @Override
+                    String apply(ServicePath input) {
+                        return input.path
+                    }
+                },
+                new Function<ServicePath, Map<String, String>>() {
+                    @Override
+                    Map<String, String> apply(ServicePath input) {
+                        return collaboratorsStatusOfAllInstances(input)
+                    }
+                })
     }
 
     private Map<String, String> statusOfAllCollaboratorInstances(ServicePath service) {
