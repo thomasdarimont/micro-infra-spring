@@ -102,9 +102,12 @@ final class RestExecutor<T> {
     private ListenableFuture<ResponseEntity<T>> withRetry(HystrixCommand.Setter hystrix, Callable<T> hystrixFallback, Callable<ResponseEntity<T>> httpInvocation) {
         String correlationId = CorrelationIdHolder.get()
         return retryExecutor.getWithRetry {
-            return CorrelationIdUpdater.withId(correlationId) {
-                return callHttp(hystrix, hystrixFallback, httpInvocation)
-            }
+            return (ResponseEntity<T>) CorrelationIdUpdater.withId(correlationId, new Callable() {
+                @Override
+                Object call() throws Exception {
+                    return callHttp(hystrix, hystrixFallback, httpInvocation)
+                }
+            })
         }
     }
 

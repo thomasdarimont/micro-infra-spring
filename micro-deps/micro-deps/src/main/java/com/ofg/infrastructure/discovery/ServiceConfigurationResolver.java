@@ -32,14 +32,6 @@ public class ServiceConfigurationResolver {
         this.microserviceConfiguration = microserviceConfiguration;
     }
 
-    private ServicePath retrieveThisElement(JSONObject metaData) {
-        return new ServicePath(metaData.getString(ServiceConfigurationProperties.THIS));
-    }
-
-    private JSONObject getJsonAsJsonObjectForBasePath(JSONObject parsedJson, String basePath) {
-        return parsedJson.getJSONObject(basePath);
-    }
-
     private JSONObject serializeJson(String configuration) {
         return (JSONObject) JSONSerializer.toJSON(StringUtils.deleteWhitespace(configuration));
     }
@@ -47,6 +39,14 @@ public class ServiceConfigurationResolver {
     private String extractBasePath(JSONObject parsedJson) {
         Set<String> rootKeys = serviceConfigurationValidator.checkThatJsonHasOneRootElement(parsedJson);
         return (String) rootKeys.toArray()[0];
+    }
+
+    private JSONObject getJsonAsJsonObjectForBasePath(JSONObject parsedJson, String basePath) {
+        return parsedJson.getJSONObject(basePath);
+    }
+
+    private ServicePath retrieveThisElement(JSONObject metaData) {
+        return new ServicePath(metaData.getString(ServiceConfigurationProperties.THIS));
     }
 
     private void validateConfiguration(JSONObject metaData) {
@@ -57,9 +57,7 @@ public class ServiceConfigurationResolver {
     }
 
     private static JSONObject getDependenciesAsJsonObject(JSONObject serviceMetadata) {
-        Object dependencies = serviceMetadata.get(ServiceConfigurationProperties.DEPENDENCIES);
-        JSONObject dependenciesAsJson = (JSONObject) dependencies;
-        return dependenciesAsJson;
+        return (JSONObject) serviceMetadata.get(ServiceConfigurationProperties.DEPENDENCIES);
     }
 
     public String getMicroserviceName() {

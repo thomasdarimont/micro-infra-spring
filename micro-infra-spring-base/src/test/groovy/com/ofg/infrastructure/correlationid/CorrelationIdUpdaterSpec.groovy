@@ -15,26 +15,6 @@ class CorrelationIdUpdaterSpec extends Specification {
         CorrelationIdHolder.remove()
     }
 
-    def 'should temporarily switch correlation ID in closure'() {
-        given:
-            CorrelationIdUpdater.updateCorrelationId('A')
-        when:
-            String idInClosure = CorrelationIdUpdater.withId('B') {
-                return CorrelationIdHolder.get()
-            }
-        then:
-            idInClosure == 'B'
-    }
-
-    def 'should restore old correlation ID after running closure with temp one'() {
-        given:
-            CorrelationIdUpdater.updateCorrelationId('A')
-        when:
-            CorrelationIdUpdater.withId('B') {}
-        then:
-            CorrelationIdHolder.get() == 'A'
-    }
-
     def "correlation ID should not be propagated to other thread by default"() {
         given:
             CorrelationIdUpdater.updateCorrelationId('A')
@@ -43,59 +23,6 @@ class CorrelationIdUpdaterSpec extends Specification {
                 ["1"].eachParallel {
                     assert CorrelationIdHolder.get() == null
                 }
-            }
-    }
-
-    def "should propagate correlation ID to closure execution in other thread with GPars"() {
-        given:
-            CorrelationIdUpdater.updateCorrelationId('A')
-        expect:
-            GParsPool.withPool(1) {
-                ["1"].eachParallel CorrelationIdUpdater.wrapClosureWithId {
-                    assert CorrelationIdHolder.get() == 'A'
-                }
-            }
-    }
-
-    def "should restore original correlation ID after closure execution in other thread"() {
-        given:
-            CorrelationIdUpdater.updateCorrelationId('A')
-        expect:
-            GParsPool.withPool(1) {
-                //given
-                ["1"].eachParallel {
-                    CorrelationIdHolder.set('B')
-                }
-                //when
-                ["1"].eachParallel CorrelationIdUpdater.wrapClosureWithId {}
-                //then
-                ["1"].eachParallel {
-                    assert CorrelationIdHolder.get() == 'B'
-                }
-            }
-    }
-
-    def "should propagate single parameter into nested closure"() {
-        expect:
-            GParsPool.withPool {
-                ["1"].eachParallel CorrelationIdUpdater.wrapClosureWithId {
-                    assert it == "1"
-                }
-            }
-    }
-
-    def "should propagate single named parameter into nested closure"() {
-        expect:
-            ["1"].each CorrelationIdUpdater.wrapClosureWithId { String elem ->
-                assert elem == "1"
-            }
-    }
-
-    def "should propagate multiple parameters into nested closure"() {
-        expect:
-            ["e1"].eachWithIndex CorrelationIdUpdater.wrapClosureWithId { String entry, int i ->
-                assert entry == "e1"
-                assert i == 0
             }
     }
 

@@ -1,25 +1,22 @@
 package com.ofg.infrastructure.discovery;
 
 import com.google.common.base.Function;
-import com.google.common.base.Predicate;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import com.ofg.infrastructure.discovery.util.CollectionUtils;
 import com.ofg.infrastructure.discovery.util.LoadBalancerType;
 import net.sf.json.JSONObject;
-import net.sf.json.JSONSerializer;
 import org.apache.commons.lang.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static com.ofg.infrastructure.discovery.ServiceConfigurationProperties.PATH;
 
 class JsonToMicroserviceConfigurationConverter {
 
+    @SuppressWarnings("unchecked")
     List<MicroserviceConfiguration.Dependency> convertJsonToDependencies(JSONObject dependenciesAsJson) {
         return new ArrayList(Collections2.transform(dependenciesAsJson.entrySet(), new Function<Map.Entry<String, JSONObject>, MicroserviceConfiguration.Dependency>() {
             @Override
@@ -33,21 +30,27 @@ class JsonToMicroserviceConfigurationConverter {
                 String version = getPropertyOrDefault(input.getValue(), ServiceConfigurationProperties.VERSION, StringUtils.EMPTY);
                 JSONObject headers = (JSONObject) input.getValue().get(ServiceConfigurationProperties.HEADERS);
                 Map<String, String> headersAsMap = Maps.newHashMap();
+                appendHeadersIfPresent(headers, headersAsMap);
+                return new MicroserviceConfiguration.Dependency(new ServiceAlias(alias), new ServicePath(path), required, loadBalancerType, contentTypeTemplate, version, headersAsMap);
+            }
+
+            private void appendHeadersIfPresent(JSONObject headers, Map<String, String> headersAsMap) {
                 if (headers != null) {
                     for (Object entry : headers.entrySet()) {
                         Map.Entry<String, Object> headerEntry = (Map.Entry<String, Object>) entry;
                         headersAsMap.put(headerEntry.getKey(), String.valueOf(headerEntry.getValue()));
                     }
                 }
-                return new MicroserviceConfiguration.Dependency(new ServiceAlias(alias), new ServicePath(path), required, loadBalancerType, contentTypeTemplate, version, headersAsMap);
             }
         }));
     }
 
+    @SuppressWarnings("unchecked")
     private static <T> T getPropertyOrDefault(JSONObject jsonObject, String propertyName, T defaultValue) {
         return jsonObject.has(propertyName) ? (T) jsonObject.get(propertyName) : defaultValue;
     }
 
+    @SuppressWarnings("unchecked")
     static void convertFlatDependenciesToMapFormat(JSONObject serviceMetadata) {
         JSONObject dependenciesAsJson = getDependenciesAsJsonObject(serviceMetadata);
         if (dependenciesAsJson == null) {
@@ -62,18 +65,14 @@ class JsonToMicroserviceConfigurationConverter {
     }
 
     private static JSONObject getDependenciesAsJsonObject(JSONObject serviceMetadata) {
-        Object dependencies = serviceMetadata.get(ServiceConfigurationProperties.DEPENDENCIES);
-        JSONObject dependenciesAsJson = (JSONObject) dependencies;
-        return dependenciesAsJson;
+        return (JSONObject) serviceMetadata.get(ServiceConfigurationProperties.DEPENDENCIES);
     }
-
 
     static void setDefaultsForMissingOptionalElements(JSONObject serviceMetadata) {
         Object dependencies = serviceMetadata.get(ServiceConfigurationProperties.DEPENDENCIES);
         if (dependencies == null) {
             serviceMetadata.put(ServiceConfigurationProperties.DEPENDENCIES, new JSONObject());
         }
-
     }
 
 }

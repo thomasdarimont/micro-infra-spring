@@ -8,8 +8,8 @@ build/
 .classpath
 commitHash.txt
 logs
-.log
-.zip
+*.log
+*.zip
 /out
 atlassian-ide-plugin.xml
 *~
