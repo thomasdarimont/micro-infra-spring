@@ -213,5 +213,5 @@ if (project.hasProperty("coverage")) {
 }
 
 wrapper {
-    gradleVersion '2.2.1'
+    gradleVersion '2.4'
 }
