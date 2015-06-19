@@ -11,6 +11,8 @@ import com.ofg.infrastructure.web.resttemplate.fluent.config.RestClientConfigure
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean
 import org.springframework.http.client.BufferingClientHttpRequestFactory
 import org.springframework.http.client.ClientHttpRequestFactory
@@ -120,8 +122,15 @@ class ServiceRestClientConfigurationSupport {
     }
 
     @Bean
-    MetricsAspect metricsAspect(MetricRegistry metricRegistry) {
-        return new MetricsAspect(metricRegistry)
+    @ConditionalOnExpression('${rest.client.metrics.enabled:true}')
+    MetricsAspect metricsAspect(MetricRegistry metricRegistry, UrlMetricNameProvider urlMetricNameProvider) {
+        return new MetricsAspect(metricRegistry, urlMetricNameProvider)
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(UrlMetricNameProvider)
+    UrlMetricNameProvider urlMetricNameProvider() {
+        return new UrlMetricNameProvider()
     }
 
     protected void configureMessageConverters(List<HttpMessageConverter<?>> converters) {

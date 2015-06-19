@@ -32,13 +32,13 @@ class ServiceRestClientCustomizationByNameSpec extends MvcCorrelationIdSettingIn
     @EnableAspectJAutoProxy(proxyTargetClass = true)
     static class CustomConfig {
         @Bean
-        MetricsAspect metricsAspect2(MetricRegistry metricRegistry) {
-            return new TestMetricsAspect2(metricRegistry)
+        MetricsAspect metricsAspect2(MetricRegistry metricRegistry, UrlMetricNameProvider urlMetricNameProvider) {
+            return new TestMetricsAspect2(metricRegistry, urlMetricNameProvider)
         }
 
         @Bean
-        MetricsAspect metricsAspect3(MetricRegistry metricRegistry) {
-            return new TestMetricsAspect3(metricRegistry)
+        MetricsAspect metricsAspect3(MetricRegistry metricRegistry, UrlMetricNameProvider urlMetricNameProvider) {
+            return new TestMetricsAspect3(metricRegistry, urlMetricNameProvider)
         }
     }
 
